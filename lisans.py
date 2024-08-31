@@ -1,168 +1,84 @@
 import sys
-import pandas as pd
-import numpy as np
-from geopy.distance import geodesic
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QFileDialog, QMessageBox
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QStackedWidget)
+from keyauth import api  # KeyAuth Python SDK'sını kullanıyoruz
+import hashlib
+from coordinate_generator import CircleCoordinateGenerator  # Koordinat oluşturma sınıfını import ediyoruz
 
-# KeyAuth Kütüphanesini import edin
-from keyauth import api
+# checksum fonksiyonu, dosyanın hash'ini hesaplamak için kullanılır
+def getchecksum():
+    md5_hash = hashlib.md5()
+    with open(sys.argv[0], "rb") as f:
+        content = f.read()
+    md5_hash.update(content)
+    return md5_hash.hexdigest()
 
 # KeyAuth API tanımı
 keyauthapp = api(
-    name="Koordinat",  # Application Name
+    name="Koordinat",  # Uygulama adı
     ownerid="QLIioia6XF",  # Owner ID
-    secret="14b9a43c849dcff649ead10eff727816dd3937fcb2a3ce9a34bc7b942926c18a",  # Application Secret
-    version="1.0",  # Application Version
-    hash_to_check=""  # getchecksum() fonksiyonunu uygun şekilde tanımlamalısınız
+    secret="14b9a43c849dcff649ead10eff727816dd3937fcb2a3ce9a34bc7b942926c18a",  # Secret Key
+    version="1.0",  # Uygulama versiyonu
+    hash_to_check=getchecksum()
 )
 
-class CircleCoordinateGenerator(QWidget):
-    def __init__(self):
+# Login ekranı sınıfı
+class LoginWindow(QWidget):
+    def __init__(self, stacked_widget):
         super().__init__()
+        self.stacked_widget = stacked_widget
         self.initUI()
 
     def initUI(self):
         layout = QVBoxLayout()
 
-        # Giriş alanları
-        self.name_label = QLabel('Name:', self)
-        self.name_input = QLineEdit(self)
+        self.username_label = QLabel('Username:', self)
+        self.username_input = QLineEdit(self)
 
-        self.description_label = QLabel('Description:', self)
-        self.description_input = QLineEdit(self)
+        self.password_label = QLabel('Password:', self)
+        self.password_input = QLineEdit(self)
+        self.password_input.setEchoMode(QLineEdit.Password)  # Şifreyi gizli girdi
 
-        self.center_lat_label = QLabel('Merkez Latitude:', self)
-        self.center_lat_input = QLineEdit(self)
+        self.login_button = QPushButton('Login', self)
+        self.login_button.clicked.connect(self.login)
 
-        self.center_long_label = QLabel('Merkez Longitude:', self)
-        self.center_long_input = QLineEdit(self)
-
-        self.radius_label = QLabel('Yarıçap (km):', self)
-        self.radius_input = QLineEdit(self)
-
-        self.num_points_label = QLabel('Kaç adet koordinat oluşturulsun:', self)
-        self.num_points_input = QLineEdit(self)
-
-        self.keywords_label = QLabel('Keywords (virgülle ayırarak):', self)
-        self.keywords_input = QLineEdit(self)
-
-        self.website_label = QLabel('Website:', self)
-        self.website_input = QLineEdit(self)
-
-        self.phone_number_label = QLabel('Phone Number:', self)
-        self.phone_number_input = QLineEdit(self)
-
-        # Gönder butonu
-        self.submit_button = QPushButton('Generate Coordinates', self)
-        self.submit_button.clicked.connect(self.generate_coordinates)
-
-        # Düzene widget'ları ekle
-        layout.addWidget(self.name_label)
-        layout.addWidget(self.name_input)
-        layout.addWidget(self.description_label)
-        layout.addWidget(self.description_input)
-        layout.addWidget(self.center_lat_label)
-        layout.addWidget(self.center_lat_input)
-        layout.addWidget(self.center_long_label)
-        layout.addWidget(self.center_long_input)
-        layout.addWidget(self.radius_label)
-        layout.addWidget(self.radius_input)
-        layout.addWidget(self.num_points_label)
-        layout.addWidget(self.num_points_input)
-        layout.addWidget(self.keywords_label)
-        layout.addWidget(self.keywords_input)
-        layout.addWidget(self.website_label)
-        layout.addWidget(self.website_input)
-        layout.addWidget(self.phone_number_label)
-        layout.addWidget(self.phone_number_input)
-        layout.addWidget(self.submit_button)
+        layout.addWidget(self.username_label)
+        layout.addWidget(self.username_input)
+        layout.addWidget(self.password_label)
+        layout.addWidget(self.password_input)
+        layout.addWidget(self.login_button)
 
         self.setLayout(layout)
-        self.setWindowTitle('Circle Coordinate Generator')
+        self.setWindowTitle('Login')
 
-    def generate_coordinates(self):
-        # KeyAuth doğrulama
-        username = self.name_input.text()  # Kullanıcı adını UI'dan al
-        password = self.description_input.text()  # Parolayı UI'dan al
+    def login(self):
+        username = self.username_input.text()
+        password = self.password_input.text()
 
-        if not keyauthapp.login(username, password):
+        # KeyAuth ile giriş yapma
+        keyauthapp.login(username, password)
+
+        if keyauthapp.user_data.username:  # Giriş başarılı olduysa
+            QMessageBox.information(self, "Başarılı", "Giriş başarılı!")
+            self.stacked_widget.setCurrentIndex(1)  # Koordinat oluşturma ekranına geç
+        else:
             QMessageBox.warning(self, "Hata", "Giriş başarısız! Lütfen bilgilerinizi kontrol edin.")
-            return
-
-        # Giriş başarılı, koordinat üretim işlemi devam ediyor
-        try:
-            # Giriş değerlerini oku
-            name = self.name_input.text()
-            description = self.description_input.text()
-            center_lat = float(self.center_lat_input.text())
-            center_long = float(self.center_long_input.text())
-            radius = float(self.radius_input.text())
-            num_points = int(self.num_points_input.text())
-            keywords = self.keywords_input.text().split(',')
-            website = self.website_input.text()
-            phone_number = self.phone_number_input.text()
-
-            # İç içe çemberleri oluştur
-            coordinates = self.generate_concentric_circles(center_lat, center_long, radius, num_points)
-
-            # Anahtar kelimeleri eşit şekilde tekrarla
-            keywords_repeated = (keywords * (num_points // len(keywords) + 1))[:num_points]
-
-            # Excel için veriyi hazırla
-            data = {
-                "Name": [name] * num_points,
-                "Description": [description] * num_points,
-                "Keyword": keywords_repeated,
-                "Website": [website] * num_points,
-                "Phone Number": [phone_number] * num_points,
-                "Latitude": [coord[0] for coord in coordinates],
-                "Longitude": [coord[1] for coord in coordinates]
-            }
-            df = pd.DataFrame(data)
-
-            # DataFrame'i Excel'e kaydet
-            options = QFileDialog.Options()
-            file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Excel Files (*.xlsx);;All Files (*)", options=options)
-            if file_name:
-                num_files = (num_points // 2000) + (1 if num_points % 2000 != 0 else 0)
-                for i in range(num_files):
-                    start_idx = i * 2000
-                    end_idx = min((i + 1) * 2000, num_points)
-                    df_subset = df.iloc[start_idx:end_idx]
-                    subset_file_name = f"{file_name}_part_{i+1}.xlsx"
-                    df_subset.to_excel(subset_file_name, index=False)
-                    QMessageBox.information(self, "Başarılı", f"{subset_file_name} başarıyla kaydedildi.")
-            else:
-                QMessageBox.warning(self, "Hata", "Kaydetme işlemi iptal edildi.")
-
-        except Exception as e:
-            QMessageBox.warning(self, "Hata", f"Bir hata oluştu: {e}")
-
-    def generate_concentric_circles(self, center_lat, center_long, max_radius, total_points):
-        points = []
-        num_circles = total_points // 2000
-        points_per_circle = 2000
-        radius_step = max_radius / num_circles
-
-        for i in range(num_circles):
-            current_radius = (i + 1) * radius_step
-            circle_points = self.generate_circle_coordinates(center_lat, center_long, current_radius, points_per_circle)
-            points.extend(circle_points)
-
-        return points
-
-    def generate_circle_coordinates(self, center_lat, center_long, radius, num_points):
-        points = []
-        angle_step = 360 / num_points
-        for i in range(num_points):
-            angle = angle_step * i
-            destination = geodesic(kilometers=radius).destination((center_lat, center_long), angle)
-            points.append((destination.latitude, destination.longitude))
-        return points
 
 if __name__ == '__main__':
-    keyauthapp.init()  # KeyAuth uygulamasını başlat
     app = QApplication(sys.argv)
-    generator = CircleCoordinateGenerator()
-    generator.show()
+
+    # Stacked Widget oluşturuluyor, bu sayede login ve ana uygulama arasında geçiş yapılabilir
+    stacked_widget = QStackedWidget()
+
+    # Login ekranı
+    login_window = LoginWindow(stacked_widget)
+    stacked_widget.addWidget(login_window)
+
+    # Koordinat oluşturma ekranı
+    coordinate_generator = CircleCoordinateGenerator()
+    stacked_widget.addWidget(coordinate_generator)
+
+    # Başlangıçta login ekranı gösteriliyor
+    stacked_widget.setCurrentIndex(0)
+    stacked_widget.show()
+
     sys.exit(app.exec_())
