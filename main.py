@@ -824,7 +824,7 @@ class KeyAuthCircleApp(QWidget):
             self.auth_tabs.setVisible(False)
             QMessageBox.information(self, "Success", "Successfully logged in!")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Login failed: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Login failed: {str(e)}", QMessageBox.Ok)
 
     def register(self):
         user = self.reg_username_input.text()
@@ -837,7 +837,7 @@ class KeyAuthCircleApp(QWidget):
             self.auth_tabs.setVisible(False)
             QMessageBox.information(self, "Success", "Registration successful!")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Registration failed: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Registration failed: {str(e)}", QMessageBox.Ok)
 
     def upgrade(self):
         user = self.username_input.text()
@@ -848,7 +848,7 @@ class KeyAuthCircleApp(QWidget):
             self.show_circle_generator()
             QMessageBox.information(self, "Success", "Upgrade successful!")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Upgrade failed: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Upgrade failed: {str(e)}", QMessageBox.Ok)
 
     def verify_license(self):
         key = self.license_input.text()
@@ -858,7 +858,7 @@ class KeyAuthCircleApp(QWidget):
             self.show_circle_generator()
             QMessageBox.information(self, "Success", "License verification successful!")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"License verification failed: {str(e)}")
+            QMessageBox.warning(self, "Error", f"License verification failed: {str(e)}", QMessageBox.Ok)
 
     def show_user_info(self):
         info = f"Username: {self.keyauthapp.user_data.username}\n"
